@@ -70,7 +70,7 @@ sha256sum DAISY_VAC_E_Back.hex
 
 ### 변경 사항
 
-최초 공개 릴리스. FRONT/BACK 보드용 펌웨어 바이너리(elf/bin/hex)를 배포합니다.
+- 전원 투입 시 모든 출력이 잠시 ON되는 현상 수정 (2026.8.4)
 
 ### 빌드 정보
 
