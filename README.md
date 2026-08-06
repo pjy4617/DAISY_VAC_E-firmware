@@ -59,7 +59,53 @@ sha256sum DAISY_VAC_E_Back.hex
 <!-- 아래 구간은 릴리스 게시 시 GitHub Actions가 자동으로 갱신합니다. 직접 수정하지 마세요. -->
 <!-- RELEASES:START -->
 
-_아직 게시된 릴리스가 없습니다._
+## 릴리스 노트
+
+| 버전 | 게시일 | FRONT | BACK |
+|---|---|---|---|
+| [v1.0.0](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/tag/v1.0.0) | 2026-08-06 | [hex](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Front.hex) · [bin](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Front.bin) · [elf](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Front.elf) | [hex](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Back.hex) · [bin](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Back.bin) · [elf](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Back.elf) |
+
+<details>
+<summary><b>v1.0.0</b> 상세 노트</summary>
+
+### 변경 사항
+
+최초 공개 릴리스. FRONT/BACK 보드용 펌웨어 바이너리(elf/bin/hex)를 배포합니다.
+
+### 빌드 정보
+
+| 항목 | 값 |
+|---|---|
+| 소스 커밋 | `ebb8eea` (`main`) |
+| 빌드 프리셋 | `Debug-Front` (FRONT) / `Debug-Back` (BACK) |
+| 빌드 시각 | 2026-08-04 00:47:43 KST |
+| 타깃 MCU | STM32F405RGT6 |
+| EtherCAT ESC | LAN9252 |
+| 툴체인 | GCC: (GNU Tools for STM32 14.3.rel1.20251027-0700) 14.3.1 20250623 |
+
+### 산출물 (SHA-256)
+
+| 파일 | 크기 | SHA-256 |
+|---|---:|---|
+| `DAISY_VAC_E_Front.elf` | 1.5M | `3699df053f756f3ecb923ee69d0bba52bb1efd314f137e60e0bb2a0b4afb08ec` |
+| `DAISY_VAC_E_Back.elf` | 1.5M | `00bc485c37ed9b34dc608390e587bba30a9aeddc5a973b182f9b995a7885c611` |
+| `DAISY_VAC_E_Front.bin` | 42.0K | `23c4216592d58d8af07dc51d50a2a9a87e7b1bf03f31d262a3b12b866b827dde` |
+| `DAISY_VAC_E_Back.bin` | 42.5K | `38a7df020991e3625d9c7e23e1c97599b985f8bb019d8473fc22668d6b988df9` |
+| `DAISY_VAC_E_Front.hex` | 118.1K | `07d621d91b131cd208cd30787e036b1349032eb8248221248da28b5d503d26d1` |
+| `DAISY_VAC_E_Back.hex` | 119.5K | `ed0c3b05e15fee635fe95b6ed3faebd4f854801b539d7b6e86e1edb67ea36b87` |
+
+### 플래시
+
+```bash
+# BACK 보드
+STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Back.hex -hardRst -rst --start
+# FRONT 보드
+STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Front.hex -hardRst -rst --start
+```
+
+> FRONT/BACK 바이너리는 I/O 매핑이 다릅니다. 보드에 맞는 파일을 사용하세요.
+
+</details>
 
 <!-- RELEASES:END -->
 
