@@ -7,6 +7,7 @@
 #   ./publish.sh v1.0.1 --notes "ADC 이동평균 윈도우 16 → 32 확대"
 #   ./publish.sh v1.1.0 --changelog          # 비공개 소스 커밋 로그 포함(공개 주의)
 #   ./publish.sh v1.0.0 --dry-run            # 게시 없이 노트 미리보기
+#   ./publish.sh v1.0.0 --update --notes "…" # 이미 게시된 릴리스의 노트만 다시 작성
 #
 set -euo pipefail
 
@@ -18,6 +19,7 @@ BACK_DIR=""
 NOTES=""
 INCLUDE_CHANGELOG=0
 PRERELEASE=0
+UPDATE=0
 DRY_RUN=0
 TAG=""
 
@@ -25,7 +27,7 @@ die() { echo "오류: $*" >&2; exit 1; }
 warn() { echo "경고: $*" >&2; }
 
 usage() {
-  sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   cat <<'EOF'
 
 옵션:
@@ -36,6 +38,7 @@ usage() {
   --notes-file FILE  변경 요약을 파일에서 읽기
   --changelog        비공개 소스 저장소의 커밋 메시지를 노트에 포함 (기본: 비포함)
   --prerelease       프리릴리스로 게시
+  --update           이미 게시된 릴리스의 노트를 다시 작성 (첨부 파일은 그대로 유지)
   --dry-run          실제 게시 없이 생성될 노트만 출력
   -h, --help         이 도움말
 EOF
@@ -51,6 +54,7 @@ while [ $# -gt 0 ]; do
     --notes-file) [ -f "$2" ] || die "노트 파일을 찾을 수 없습니다: $2"; NOTES="$(cat "$2")"; shift 2 ;;
     --changelog)  INCLUDE_CHANGELOG=1; shift ;;
     --prerelease) PRERELEASE=1; shift ;;
+    --update)     UPDATE=1; shift ;;
     --dry-run)    DRY_RUN=1; shift ;;
     -*)           die "알 수 없는 옵션: $1" ;;
     *)            [ -z "$TAG" ] || die "태그는 하나만 지정할 수 있습니다."; TAG="$1"; shift ;;
@@ -172,7 +176,26 @@ if [ "$DRY_RUN" -eq 1 ]; then
 fi
 
 if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
-  die "태그 '$TAG' 릴리스가 이미 존재합니다. 다른 버전을 쓰거나 'gh release delete $TAG --repo $REPO'로 먼저 삭제하세요."
+  [ "$UPDATE" -eq 1 ] || die "태그 '$TAG' 릴리스가 이미 존재합니다. 노트만 다시 쓰려면 --update, 완전히 새로 올리려면 'gh release delete $TAG --repo $REPO'를 먼저 실행하세요."
+
+  # --update는 첨부 파일을 다시 올리지 않는다. 로컬 산출물이 게시본과 같은지 해시로 대조한다.
+  gh release view "$TAG" --repo "$REPO" --json body --jq '.body // ""' > "$work/old.md"
+  for f in "${ARTIFACTS[@]}"; do
+    if ! grep -qF "$(sha256sum "$f" | cut -d' ' -f1)" "$work/old.md"; then
+      warn "로컬 '$(basename "$f")'의 해시가 기존 릴리스 노트에 없습니다."
+      warn "산출물이 바뀌었다면 --update 대신 새 버전으로 게시하세요 (파일은 다시 업로드되지 않습니다)."
+      break
+    fi
+  done
+
+  echo "릴리스 '$TAG'의 노트를 다시 작성합니다... (첨부 파일 6개는 그대로 유지)"
+  gh release edit "$TAG" --repo "$REPO" --notes-file "$NOTES_FILE" >/dev/null
+  echo
+  echo "완료: https://github.com/$REPO/releases/tag/$TAG"
+  echo "README.md는 GitHub Actions가 자동 갱신합니다 (수동 실행: ./gen-readme.sh)."
+  exit 0
+elif [ "$UPDATE" -eq 1 ]; then
+  die "태그 '$TAG' 릴리스가 없습니다. --update 없이 실행해 새로 게시하세요."
 fi
 
 GH_ARGS=(release create "$TAG"
