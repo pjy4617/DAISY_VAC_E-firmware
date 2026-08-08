@@ -86,7 +86,7 @@ sha256sum DAISY_VAC_E_Back_v2.0.0.hex
 | 버전 | 게시일 | FRONT | BACK |
 |---|---|---|---|
 | [v2.0.0](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/tag/v2.0.0) | 2026-08-08 | [hex](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v2.0.0/DAISY_VAC_E_Front_v2.0.0.hex) · [bin](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v2.0.0/DAISY_VAC_E_Front_v2.0.0.bin) · [elf](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v2.0.0/DAISY_VAC_E_Front_v2.0.0.elf) | [hex](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v2.0.0/DAISY_VAC_E_Back_v2.0.0.hex) · [bin](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v2.0.0/DAISY_VAC_E_Back_v2.0.0.bin) · [elf](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v2.0.0/DAISY_VAC_E_Back_v2.0.0.elf) |
-| [v1.0.0](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/tag/v1.0.0) | 2026-08-06 | [hex](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Front.hex) · [bin](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Front.bin) · [elf](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Front.elf) | [hex](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Back.hex) · [bin](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Back.bin) · [elf](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Back.elf) |
+| [v1.0.0](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/tag/v1.0.0) | 2026-08-06 | [hex](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Front_v1.0.0.hex) · [bin](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Front_v1.0.0.bin) · [elf](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Front_v1.0.0.elf) | [hex](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Back_v1.0.0.hex) · [bin](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Back_v1.0.0.bin) · [elf](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Back_v1.0.0.elf) |
 
 <details>
 <summary><b>v2.0.0</b> 상세 노트</summary>
@@ -144,6 +144,11 @@ STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Front_v2.0.0.hex 
 <details>
 <summary><b>v1.0.0</b> 상세 노트</summary>
 
+> **2026-08-08 — 첨부 파일 이름 변경.** 배포 파일명 규칙(`v2.0.0`에서 도입)에 맞춰 이 릴리스의
+> 첨부 이름에도 버전을 넣었습니다 (`DAISY_VAC_E_Front.hex` → `DAISY_VAC_E_Front_v1.0.0.hex`).
+> **파일 내용과 SHA-256은 그대로입니다** — 재업로드가 아니라 이름만 바꿨습니다.
+> 옛 이름으로 된 다운로드 주소는 더 이상 열리지 않습니다.
+
 ### 변경 사항
 
 - 전원 투입 시 모든 출력이 잠시 ON되는 현상 수정 (2026.8.4)
@@ -163,20 +168,20 @@ STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Front_v2.0.0.hex 
 
 | 파일 | 크기 | SHA-256 |
 |---|---:|---|
-| `DAISY_VAC_E_Front.elf` | 1.5M | `3699df053f756f3ecb923ee69d0bba52bb1efd314f137e60e0bb2a0b4afb08ec` |
-| `DAISY_VAC_E_Back.elf` | 1.5M | `00bc485c37ed9b34dc608390e587bba30a9aeddc5a973b182f9b995a7885c611` |
-| `DAISY_VAC_E_Front.bin` | 42.0K | `23c4216592d58d8af07dc51d50a2a9a87e7b1bf03f31d262a3b12b866b827dde` |
-| `DAISY_VAC_E_Back.bin` | 42.5K | `38a7df020991e3625d9c7e23e1c97599b985f8bb019d8473fc22668d6b988df9` |
-| `DAISY_VAC_E_Front.hex` | 118.1K | `07d621d91b131cd208cd30787e036b1349032eb8248221248da28b5d503d26d1` |
-| `DAISY_VAC_E_Back.hex` | 119.5K | `ed0c3b05e15fee635fe95b6ed3faebd4f854801b539d7b6e86e1edb67ea36b87` |
+| `DAISY_VAC_E_Front_v1.0.0.elf` | 1.5M | `3699df053f756f3ecb923ee69d0bba52bb1efd314f137e60e0bb2a0b4afb08ec` |
+| `DAISY_VAC_E_Back_v1.0.0.elf` | 1.5M | `00bc485c37ed9b34dc608390e587bba30a9aeddc5a973b182f9b995a7885c611` |
+| `DAISY_VAC_E_Front_v1.0.0.bin` | 42.0K | `23c4216592d58d8af07dc51d50a2a9a87e7b1bf03f31d262a3b12b866b827dde` |
+| `DAISY_VAC_E_Back_v1.0.0.bin` | 42.5K | `38a7df020991e3625d9c7e23e1c97599b985f8bb019d8473fc22668d6b988df9` |
+| `DAISY_VAC_E_Front_v1.0.0.hex` | 118.1K | `07d621d91b131cd208cd30787e036b1349032eb8248221248da28b5d503d26d1` |
+| `DAISY_VAC_E_Back_v1.0.0.hex` | 119.5K | `ed0c3b05e15fee635fe95b6ed3faebd4f854801b539d7b6e86e1edb67ea36b87` |
 
 ### 플래시
 
 ```bash
 # BACK 보드
-STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Back.hex -hardRst -rst --start
+STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Back_v1.0.0.hex -hardRst -rst --start
 # FRONT 보드
-STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Front.hex -hardRst -rst --start
+STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Front_v1.0.0.hex -hardRst -rst --start
 ```
 
 > FRONT/BACK 바이너리는 I/O 매핑이 다릅니다. 보드에 맞는 파일을 사용하세요.
