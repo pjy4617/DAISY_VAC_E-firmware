@@ -31,9 +31,10 @@ trap 'rm -rf "$work"' EXIT
 # 초안(draft)을 제외한 릴리스 목록을 최신순으로 수집.
 #
 # `gh release list` 대신 REST API를 쓰는 이유: 자산 이름에 버전이 들어가면서
-# (DAISY_VAC_E_Front_v2.0.0.hex) 링크를 이름 규칙으로 조립할 수 없게 됐다.
-# 버전 도입 이전 릴리스는 버전 없는 이름(DAISY_VAC_E_Front.hex)이라 규칙으로
-# 만들면 옛 릴리스 링크가 404 난다. 실제 자산 목록에서 URL을 그대로 읽는다.
+# (DAISY_VAC_E_Front_v2.0.0.hex) 링크를 이름 규칙으로 조립하는 것이 깨지기 쉬워졌다.
+# 조립 방식은 실제로 한 번 사고를 냈다 — v2.0.0 게시 직후 이 스크립트의 옛 버전이
+# 버전 없는 이름으로 링크를 만들어 6개가 404였다. 실제 자산 목록의 URL을 그대로 읽으면
+# 이름 규칙이 어떻게 바뀌든, 규칙 밖 자산이 섞여 있든 링크가 항상 맞는다.
 gh api "repos/$REPO/releases?per_page=$LIMIT" \
   | jq '[ .[]
           | select(.draft | not)

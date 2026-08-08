@@ -126,8 +126,9 @@ for f in "${ARTIFACTS[@]}"; do
 done
 
 # `--update`는 파일을 다시 올리지 않으므로 노트에 적을 이름은 **이미 게시된 자산 이름**이라야
-# 한다. 버전 삽입 이전에 게시된 릴리스는 옛 이름(DAISY_VAC_E_Front.hex)을 쓰고 있으니,
-# 그런 경우 사본 이름을 게시본에 맞춘다. 안 그러면 노트의 SHA 표가 실제 첨부와 어긋난다.
+# 한다. 다르면 노트의 SHA 표가 실제 첨부와 어긋난다. 게시된 릴리스는 모두 버전이 붙은
+# 이름으로 통일돼 있어(v1.0.0도 2026-08-08 개명) 지금은 이 보정이 걸리지 않지만,
+# 규칙 밖 이름으로 올라간 자산에 대한 안전망으로 남겨 둔다.
 if [ "$UPDATE" -eq 1 ]; then
   PUBLISHED="$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' 2>/dev/null || true)"
   for i in "${!ASSETS[@]}"; do
