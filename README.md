@@ -15,25 +15,47 @@ STM32F405RGT6 + LAN9252 기반 **EtherCAT 슬레이브 산업용 I/O 모듈** `D
 | FRONT | `USE_FRONT` | `DAISY_VAC_E_Front` |
 | BACK | `USE_BACK` | `DAISY_VAC_E_Back` |
 
-## 최신 버전 다운로드
+## 파일 이름 규칙
 
-아래 링크는 **항상 최신 릴리스**를 가리킵니다. 스크립트에서 그대로 사용할 수 있습니다.
+파일 이름에 **릴리스 버전이 들어갑니다.**
 
-| 파일 | FRONT | BACK |
-|---|---|---|
-| `.hex` (플래시 권장) | [DAISY_VAC_E_Front.hex](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/latest/download/DAISY_VAC_E_Front.hex) | [DAISY_VAC_E_Back.hex](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/latest/download/DAISY_VAC_E_Back.hex) |
-| `.bin` | [DAISY_VAC_E_Front.bin](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/latest/download/DAISY_VAC_E_Front.bin) | [DAISY_VAC_E_Back.bin](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/latest/download/DAISY_VAC_E_Back.bin) |
-| `.elf` (디버깅/심볼) | [DAISY_VAC_E_Front.elf](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/latest/download/DAISY_VAC_E_Front.elf) | [DAISY_VAC_E_Back.elf](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/latest/download/DAISY_VAC_E_Back.elf) |
-
-```bash
-# 예: BACK 보드 최신 펌웨어 내려받기 (인증 불필요)
-curl -L -O https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/latest/download/DAISY_VAC_E_Back.hex
+```
+DAISY_VAC_E_<보드>_<버전>.<확장자>      예) DAISY_VAC_E_Front_v2.0.0.hex
 ```
 
-특정 버전이 필요하면 `latest/download` 자리에 `download/<태그>`를 넣습니다.
+받아 둔 파일만 보고도 어느 버전인지 알 수 있고, 여러 버전을 한 폴더에 모아도
+서로 덮어쓰지 않습니다. `v2.0.0` 이전(`v1.0.0`) 릴리스는 버전이 없는 옛 이름
+(`DAISY_VAC_E_Front.hex`)을 씁니다.
+
+## 최신 버전 다운로드
+
+파일 이름이 버전마다 달라지므로 **`releases/latest/download/<파일명>` 형태의 고정 링크는
+쓸 수 없습니다.** 아래 셋 중 하나를 쓰십시오.
+
+1. **[최신 릴리스 페이지](https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/latest)** 에서 직접 내려받기
+2. 이 문서 아래 [릴리스 노트](#릴리스-노트) 표의 링크 (버전별 `hex` · `bin` · `elf`)
+3. 스크립트에서는 **API로 최신 태그를 먼저 구해** 이름을 만듭니다 (인증 불필요)
 
 ```bash
-curl -L -O https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.0.0/DAISY_VAC_E_Back.hex
+# 예: BACK 보드 최신 .hex 내려받기
+REPO=pjy4617/DAISY_VAC_E-firmware
+TAG=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" | jq -r .tag_name)
+curl -L -O "https://github.com/$REPO/releases/download/$TAG/DAISY_VAC_E_Back_$TAG.hex"
+```
+
+파일명을 조립하지 않고 **자산 주소를 그대로 받는 방법**이 더 안전합니다.
+버전 도입 이전 릴리스에도 그대로 통합니다.
+
+```bash
+curl -sL "https://api.github.com/repos/$REPO/releases/latest" \
+  | jq -r '.assets[] | select(.name | test("_Back(_.*)?\\.hex$")) | .browser_download_url' \
+  | xargs curl -L -O
+```
+
+특정 버전이 필요하면 태그와 파일명을 함께 지정합니다.
+
+```bash
+curl -L -O https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v2.0.0/DAISY_VAC_E_Back_v2.0.0.hex
 ```
 
 ## 플래시 방법
@@ -42,10 +64,10 @@ curl -L -O https://github.com/pjy4617/DAISY_VAC_E-firmware/releases/download/v1.
 
 ```bash
 # .hex — 주소가 파일에 포함되어 있어 주소 지정이 필요 없습니다 (권장)
-STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Back.hex -hardRst -rst --start
+STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Back_v2.0.0.hex -hardRst -rst --start
 
 # .bin — 플래시 시작 주소를 반드시 명시해야 합니다
-STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Back.bin 0x08000000 -hardRst -rst --start
+STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Back_v2.0.0.bin 0x08000000 -hardRst -rst --start
 ```
 
 ## 무결성 검증
@@ -53,7 +75,7 @@ STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Back.bin 0x080000
 각 릴리스 노트에 모든 파일의 SHA-256 해시가 기록되어 있습니다.
 
 ```bash
-sha256sum DAISY_VAC_E_Back.hex
+sha256sum DAISY_VAC_E_Back_v2.0.0.hex
 ```
 
 <!-- 아래 구간은 릴리스 게시 시 GitHub Actions가 자동으로 갱신합니다. 직접 수정하지 마세요. -->

@@ -3,6 +3,10 @@
 # DAISY_VAC_E 빌드 산출물(FRONT/BACK × elf/bin/hex)을 이 저장소의 GitHub Release로 게시한다.
 # 게시가 끝나면 GitHub Actions가 README.md의 릴리스 노트 구간을 자동으로 갱신한다.
 #
+# 릴리스 자산 이름에는 버전이 들어간다 — DAISY_VAC_E_Front_v2.0.0.hex 처럼
+# `<산출물명>_<태그>.<확장자>` 형식이다. 빌드 산출물 자체(DAISY_VAC_E_Front.hex)는
+# 태그를 모르므로 이름을 바꾸지 않고, 업로드 직전에 임시 폴더로 복사하며 붙인다.
+#
 #   ./publish.sh v1.0.0
 #   ./publish.sh v1.0.1 --notes "ADC 이동평균 윈도우 16 → 32 확대"
 #   ./publish.sh v1.1.0 --changelog          # 비공개 소스 커밋 로그 포함(공개 주의)
@@ -104,9 +108,55 @@ BUILD_DATE="$(date -d "@$OLDEST_ARTIFACT_EPOCH" '+%Y-%m-%d %H:%M:%S %Z')"
 TOOLCHAIN="$(strings "$FRONT_DIR/DAISY_VAC_E_Front.elf" 2>/dev/null | grep -m1 '^GCC: (' || true)"
 [ -n "$TOOLCHAIN" ] || TOOLCHAIN="$(arm-none-eabi-gcc --version 2>/dev/null | head -1 || echo '알 수 없음')"
 
-# ---- 릴리스 노트 생성 -----------------------------------------------------
+# ---- 릴리스 자산 준비 (파일명에 버전 삽입) --------------------------------
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
+
+# GitHub 자산 이름은 **업로드한 파일의 basename 그대로**다. 이름에 버전을 넣으려면
+# 그 이름을 가진 파일을 올리는 수밖에 없으므로, 산출물을 임시 폴더에 태그를 붙여
+# 복사한 뒤 사본을 업로드한다. 빌드 트리의 원본은 건드리지 않는다.
+ASSET_DIR="$work/assets"
+mkdir -p "$ASSET_DIR"
+ASSETS=()
+for f in "${ARTIFACTS[@]}"; do
+  base="$(basename "$f")"
+  asset="$ASSET_DIR/${base%.*}_${TAG}.${base##*.}"
+  cp -- "$f" "$asset"
+  ASSETS+=("$asset")
+done
+
+# `--update`는 파일을 다시 올리지 않으므로 노트에 적을 이름은 **이미 게시된 자산 이름**이라야
+# 한다. 버전 삽입 이전에 게시된 릴리스는 옛 이름(DAISY_VAC_E_Front.hex)을 쓰고 있으니,
+# 그런 경우 사본 이름을 게시본에 맞춘다. 안 그러면 노트의 SHA 표가 실제 첨부와 어긋난다.
+if [ "$UPDATE" -eq 1 ]; then
+  PUBLISHED="$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' 2>/dev/null || true)"
+  for i in "${!ASSETS[@]}"; do
+    name="$(basename "${ASSETS[$i]}")"
+    if printf '%s\n' "$PUBLISHED" | grep -qxF "$name"; then
+      continue
+    fi
+    legacy="$(basename "${ARTIFACTS[$i]}")"
+    if printf '%s\n' "$PUBLISHED" | grep -qxF "$legacy"; then
+      mv -- "${ASSETS[$i]}" "$ASSET_DIR/$legacy"
+      ASSETS[$i]="$ASSET_DIR/$legacy"
+    else
+      warn "게시된 자산에 '$name' 도 '$legacy' 도 없습니다. 노트에는 '$name'으로 적습니다."
+    fi
+  done
+fi
+
+# 노트의 플래시 예시에 쓸 이름. 위 조정 결과를 따라야 하므로 태그로 조립하지 않는다.
+hex_asset() {
+  local a
+  for a in "${ASSETS[@]}"; do
+    case "$(basename "$a")" in
+      *_"$1"_*.hex|*_"$1".hex) basename "$a"; return 0 ;;
+    esac
+  done
+  echo "DAISY_VAC_E_$1_${TAG}.hex"
+}
+
+# ---- 릴리스 노트 생성 -----------------------------------------------------
 NOTES_FILE="$work/notes.md"
 
 {
@@ -133,7 +183,7 @@ NOTES_FILE="$work/notes.md"
   echo
   echo "| 파일 | 크기 | SHA-256 |"
   echo "|---|---:|---|"
-  for f in "${ARTIFACTS[@]}"; do
+  for f in "${ASSETS[@]}"; do
     printf '| `%s` | %s | `%s` |\n' \
       "$(basename "$f")" \
       "$(numfmt --to=iec --format='%.1f' "$(stat -c %s "$f")")" \
@@ -159,9 +209,9 @@ NOTES_FILE="$work/notes.md"
   echo
   echo '```bash'
   echo "# BACK 보드"
-  echo "STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Back.hex -hardRst -rst --start"
+  echo "STM32_Programmer_CLI --connect port=swd --download $(hex_asset Back) -hardRst -rst --start"
   echo "# FRONT 보드"
-  echo "STM32_Programmer_CLI --connect port=swd --download DAISY_VAC_E_Front.hex -hardRst -rst --start"
+  echo "STM32_Programmer_CLI --connect port=swd --download $(hex_asset Front) -hardRst -rst --start"
   echo '```'
   echo
   echo "> FRONT/BACK 바이너리는 I/O 매핑이 다릅니다. 보드에 맞는 파일을 사용하세요."
@@ -170,8 +220,10 @@ NOTES_FILE="$work/notes.md"
 if [ "$DRY_RUN" -eq 1 ]; then
   echo "===== [dry-run] $TAG 릴리스 노트 미리보기 ====="
   cat "$NOTES_FILE"
-  echo "===== 업로드 예정 파일 ====="
-  printf '%s\n' "${ARTIFACTS[@]}"
+  echo "===== 업로드 예정 자산 (산출물 → 자산명) ====="
+  for i in "${!ARTIFACTS[@]}"; do
+    printf '%s\n    → %s\n' "${ARTIFACTS[$i]}" "$(basename "${ASSETS[$i]}")"
+  done
   exit 0
 fi
 
@@ -180,7 +232,7 @@ if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
 
   # --update는 첨부 파일을 다시 올리지 않는다. 로컬 산출물이 게시본과 같은지 해시로 대조한다.
   gh release view "$TAG" --repo "$REPO" --json body --jq '.body // ""' > "$work/old.md"
-  for f in "${ARTIFACTS[@]}"; do
+  for f in "${ASSETS[@]}"; do
     if ! grep -qF "$(sha256sum "$f" | cut -d' ' -f1)" "$work/old.md"; then
       warn "로컬 '$(basename "$f")'의 해시가 기존 릴리스 노트에 없습니다."
       warn "산출물이 바뀌었다면 --update 대신 새 버전으로 게시하세요 (파일은 다시 업로드되지 않습니다)."
@@ -188,7 +240,7 @@ if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
     fi
   done
 
-  echo "릴리스 '$TAG'의 노트를 다시 작성합니다... (첨부 파일 6개는 그대로 유지)"
+  echo "릴리스 '$TAG'의 노트를 다시 작성합니다... (첨부 파일 ${#ASSETS[@]}개는 그대로 유지)"
   gh release edit "$TAG" --repo "$REPO" --notes-file "$NOTES_FILE" >/dev/null
   echo
   echo "완료: https://github.com/$REPO/releases/tag/$TAG"
@@ -205,8 +257,8 @@ GH_ARGS=(release create "$TAG"
   --target "$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)")
 [ "$PRERELEASE" -eq 1 ] && GH_ARGS+=(--prerelease)
 
-echo "릴리스 '$TAG' 게시 중... (파일 ${#ARTIFACTS[@]}개)"
-gh "${GH_ARGS[@]}" "${ARTIFACTS[@]}"
+echo "릴리스 '$TAG' 게시 중... (파일 ${#ASSETS[@]}개, 자산명에 $TAG 삽입)"
+gh "${GH_ARGS[@]}" "${ASSETS[@]}"
 
 echo
 echo "완료: https://github.com/$REPO/releases/tag/$TAG"

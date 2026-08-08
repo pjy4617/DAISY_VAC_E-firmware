@@ -28,10 +28,20 @@ grep -qF "$END_MARK"   "$README" || { echo "오류: README.md에 $END_MARK 마�
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-# 초안(draft)을 제외한 릴리스 목록을 최신순으로 수집
-gh release list --repo "$REPO" --limit "$LIMIT" \
-    --json tagName,name,publishedAt,isDraft,isPrerelease \
-  | jq 'map(select(.isDraft | not))' > "$work/releases.json"
+# 초안(draft)을 제외한 릴리스 목록을 최신순으로 수집.
+#
+# `gh release list` 대신 REST API를 쓰는 이유: 자산 이름에 버전이 들어가면서
+# (DAISY_VAC_E_Front_v2.0.0.hex) 링크를 이름 규칙으로 조립할 수 없게 됐다.
+# 버전 도입 이전 릴리스는 버전 없는 이름(DAISY_VAC_E_Front.hex)이라 규칙으로
+# 만들면 옛 릴리스 링크가 404 난다. 실제 자산 목록에서 URL을 그대로 읽는다.
+gh api "repos/$REPO/releases?per_page=$LIMIT" \
+  | jq '[ .[]
+          | select(.draft | not)
+          | { tagName:      .tag_name,
+              publishedAt:  .published_at,
+              isPrerelease: .prerelease,
+              assets:       [ .assets[] | {name, url: .browser_download_url} ] } ]' \
+  > "$work/releases.json"
 
 count="$(jq 'length' "$work/releases.json")"
 echo "릴리스 ${count}건을 README에 반영합니다."
@@ -47,15 +57,24 @@ echo "릴리스 ${count}건을 README에 반영합니다."
   else
     echo "| 버전 | 게시일 | FRONT | BACK |"
     echo "|---|---|---|---|"
+    # 보드 한쪽의 셀을 실제 자산에서 만든다. 이름은 `…_Front.hex`(옛 릴리스)와
+    # `…_Front_v2.0.0.hex`(버전 삽입 이후) 두 형태를 모두 받는다.
     jq -r --arg base "$BASE" '
+      def cell($r; $board):
+        ( ["hex","bin","elf"]
+          | map( . as $e
+                 | ( $r.assets
+                     | map(select(.name | test("_\($board)(_[^/]*)?\\.\($e)$"; "i")))
+                     | first )
+                 | if . == null then empty else "[\($e)](\(.url))" end ) )
+        | if length == 0 then "—" else join(" · ") end;
       .[] |
       . as $r |
-      ["hex","bin","elf"] as $ext |
       "| [\($r.tagName)](\($base)/releases/tag/\($r.tagName))"
         + (if $r.isPrerelease then " `pre`" else "" end)
       + " | \($r.publishedAt[0:10])"
-      + " | " + ([ $ext[] | "[\(.)](\($base)/releases/download/\($r.tagName)/DAISY_VAC_E_Front.\(.))" ] | join(" · "))
-      + " | " + ([ $ext[] | "[\(.)](\($base)/releases/download/\($r.tagName)/DAISY_VAC_E_Back.\(.))"  ] | join(" · "))
+      + " | " + cell($r; "Front")
+      + " | " + cell($r; "Back")
       + " |"
     ' "$work/releases.json"
     echo
