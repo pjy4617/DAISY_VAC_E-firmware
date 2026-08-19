@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>트레이 엘리베이터 전용 제어기 — 티원</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+:root{
+  --bg:#0A0E13;
+  --panel:rgba(255,255,255,.032);
+  --panel-2:rgba(255,255,255,.055);
+  --line:rgba(150,180,200,.14);
+  --line-soft:rgba(150,180,200,.08);
+  --ink:#EAF1F5;
+  --ink-dim:#93A4B1;
+  --ink-faint:#5E6E7A;
+  --cyan:#57E6DC;      /* 신호·블루프린트 — 주 accent */
+  --amber:#F6A72A;     /* 안전·브레이크 전용 accent */
+  --grid:rgba(90,180,200,.045);
+  --font:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --rail:76px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow:hidden;
+}
+
+/* ---------- scroll-snap deck ---------- */
+.deck{
+  height:100svh;
+  overflow-y:scroll;
+  scroll-snap-type:y mandatory;
+  scroll-behavior:smooth;
+  scrollbar-width:none;
+  position:relative;
+  background:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px),
+    radial-gradient(120% 90% at 82% 8%,rgba(30,167,156,.10),transparent 60%),
+    radial-gradient(90% 80% at 0% 100%,rgba(20,30,45,.6),transparent 55%),
+    var(--bg);
+  background-size:44px 44px,44px 44px,100% 100%,100% 100%,100% 100%;
+}
+.deck::-webkit-scrollbar{display:none}
+
+.slide{
+  scroll-snap-align:start;
+  min-height:100svh;
+  display:flex;
+  align-items:center;
+  padding:64px calc(var(--rail) + 40px) 64px calc(var(--rail) + 60px);
+  position:relative;
+}
+.wrap{width:100%;max-width:1120px;margin:0 auto}
+.wrap.wide{max-width:1300px}
+
+/* ---------- left ruler / nav ---------- */
+.ruler{
+  position:fixed;top:0;left:0;height:100svh;width:var(--rail);
+  z-index:40;
+  border-right:1px solid var(--line-soft);
+  background:linear-gradient(180deg,rgba(10,14,19,.7),rgba(10,14,19,.2));
+  backdrop-filter:blur(2px);
+  display:flex;flex-direction:column;align-items:center;
+  padding:24px 0;
+  user-select:none;
+}
+.ruler .brand{
+  font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.22em;
+  color:var(--ink);writing-mode:vertical-rl;text-orientation:mixed;
+  margin-bottom:auto;padding-top:4px;
+}
+.ruler .brand b{color:var(--cyan)}
+.ticks{display:flex;flex-direction:column;gap:0;margin:auto 0}
+.tick{
+  appearance:none;background:none;border:none;cursor:pointer;
+  font-family:var(--mono);font-size:11px;color:var(--ink-faint);
+  display:flex;align-items:center;gap:8px;
+  padding:5px 0;width:var(--rail);justify-content:center;
+  transition:color .35s ease;
+}
+.tick .bar{display:block;height:1.5px;width:12px;background:var(--ink-faint);transition:all .35s cubic-bezier(.2,.7,.2,1)}
+.tick .n{width:16px;text-align:center;opacity:.7;transition:opacity .35s}
+.tick:hover{color:var(--ink-dim)}
+.tick:hover .bar{width:18px;background:var(--ink-dim)}
+.tick.active{color:var(--cyan)}
+.tick.active .bar{width:26px;background:var(--cyan);box-shadow:0 0 10px rgba(87,230,220,.6)}
+.tick.active .n{opacity:1}
+.ruler .foot{
+  font-family:var(--mono);font-size:10px;letter-spacing:.15em;color:var(--ink-faint);
+  writing-mode:vertical-rl;text-orientation:mixed;margin-top:auto;padding-bottom:2px;
+}
+
+/* ---------- shared type ---------- */
+.eyebrow{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.eyebrow .num{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--cyan);letter-spacing:.1em}
+.eyebrow .rule{height:1px;width:46px;background:linear-gradient(90deg,var(--cyan),transparent)}
+.eyebrow .lbl{font-family:var(--mono);font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:var(--ink-dim)}
+
+h2.head{
+  font-size:clamp(26px,3.8vw,48px);
+  font-weight:800;line-height:1.14;letter-spacing:-.02em;
+  margin-bottom:20px;max-width:21ch;
+}
+h2.head.sm{font-size:clamp(23px,2.9vw,36px);margin-bottom:14px}
+h2.head .hl{color:var(--cyan)}
+h2.head .hl-a{color:var(--amber)}
+.lead{font-size:clamp(14.5px,1.45vw,18px);line-height:1.7;color:var(--ink-dim);max-width:62ch}
+.lead b{color:var(--ink);font-weight:600}
+.note{margin-top:18px;font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;color:var(--ink-faint);line-height:1.7}
+.note b{color:var(--ink-dim);font-weight:500}
+
+/* dimension-line signature */
+.dimline{display:inline-flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12px;color:var(--ink-dim);letter-spacing:.1em}
+.dimline .seg{height:1px;width:38px;background:var(--line);position:relative}
+.dimline .seg::before,.dimline .seg::after{content:"";position:absolute;top:-3px;height:7px;width:1px;background:var(--line)}
+.dimline .seg::before{left:0}.dimline .seg::after{right:0}
+
+/* ---------- cards ---------- */
+.grid{display:grid;gap:15px;margin-top:28px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:15px;
+  padding:22px 22px 20px;position:relative;overflow:hidden;
+  transition:border-color .4s ease,transform .4s ease,background .4s ease;
+}
+.card:hover{border-color:rgba(87,230,220,.35);background:var(--panel-2);transform:translateY(-3px)}
+.card .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--cyan);margin-bottom:11px;text-transform:uppercase}
+.card h3{font-size:18px;font-weight:700;letter-spacing:-.01em;margin-bottom:8px;line-height:1.32}
+.card p{font-size:14px;line-height:1.62;color:var(--ink-dim)}
+.card p b{color:var(--ink);font-weight:600}
+.card p + p{margin-top:8px}
+.card.safe .k{color:var(--amber)}
+.card.safe:hover{border-color:rgba(246,167,42,.4)}
+.card.safe::after{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--amber),transparent)}
+
+/* problem callout — 배지 없이 좌측 규칙선만 */
+.callout{
+  margin-top:26px;border:1px solid rgba(246,167,42,.3);border-radius:15px;
+  background:linear-gradient(180deg,rgba(246,167,42,.07),rgba(246,167,42,.015));
+  padding:22px 26px;max-width:74ch;position:relative;
+}
+.callout::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:2px;background:var(--amber);border-radius:2px}
+.callout .k{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--amber);text-transform:uppercase;margin-bottom:9px}
+.callout p{font-size:15px;line-height:1.62;color:var(--ink-dim)}
+.callout p b{color:var(--amber);font-weight:600}
+
+/* flow — 글리프 화살표 대신 헤어라인 커넥터 */
+.flow{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin-top:6px}
+.chip{font-family:var(--mono);font-size:12.5px;border:1px solid var(--line);border-radius:999px;padding:9px 16px;color:var(--ink);background:var(--panel);white-space:nowrap}
+.chip.on{border-color:var(--cyan);color:var(--cyan);box-shadow:inset 0 0 0 1px rgba(87,230,220,.22)}
+.flow .link{height:1px;width:34px;background:linear-gradient(90deg,var(--line),rgba(87,230,220,.5),var(--line));flex:none}
+
+/* before/after */
+.ba{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;align-items:center;margin-top:24px}
+.ba figure{background:#fff;border:1px solid var(--line);border-radius:15px;padding:10px;box-shadow:0 24px 60px -30px rgba(0,0,0,.8)}
+.ba img{width:100%;height:auto;display:block;border-radius:8px;max-height:34svh;object-fit:contain}
+.ba figcaption{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;color:var(--ink-dim);text-align:center;margin-top:11px;text-transform:uppercase}
+.ba .bridge{display:flex;flex-direction:column;align-items:center;gap:9px;font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--cyan)}
+.ba .bridge .ln{width:1px;height:44px;background:linear-gradient(180deg,transparent,var(--cyan),transparent)}
+.ba-cap{margin-top:18px;font-size:14px;line-height:1.65;color:var(--ink-dim);max-width:88ch}
+.ba-cap b{color:var(--ink)}
+
+/* system diagram */
+.slide.diag{padding-top:34px;padding-bottom:34px}
+.diagram{width:min(980px,100%);margin:16px auto 0;background:#fff;border:1px solid var(--line);border-radius:15px;padding:12px;box-shadow:0 24px 60px -30px rgba(0,0,0,.8)}
+.diagram img{display:block;width:100%;height:auto;border-radius:6px;max-height:64svh;object-fit:contain}
+
+/* table */
+.tbl{width:100%;border-collapse:collapse;margin-top:26px;font-size:14px}
+.tbl th{
+  font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-faint);text-align:left;font-weight:500;
+  padding:0 16px 11px;border-bottom:1px solid var(--line);
+}
+.tbl td{padding:15px 16px;border-bottom:1px solid var(--line-soft);color:var(--ink-dim);line-height:1.55;vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td.who{color:var(--ink);font-weight:700;white-space:nowrap;font-size:14.5px}
+.tbl td.who span{display:block;font-family:var(--mono);font-size:10.5px;font-weight:400;letter-spacing:.1em;color:var(--cyan);margin-top:4px}
+.tbl td b{color:var(--ink);font-weight:600}
+.tbl td.no{color:var(--ink-faint)}
+.tbl .id{font-family:var(--mono);color:var(--cyan);font-weight:700;white-space:nowrap}
+
+/* state chain */
+.chain{display:flex;align-items:stretch;gap:0;margin-top:28px;flex-wrap:wrap}
+.st{
+  flex:1;min-width:150px;border:1px solid var(--line);border-radius:13px;background:var(--panel);
+  padding:16px 15px;position:relative;
+}
+.st .sn{font-family:var(--mono);font-size:12px;letter-spacing:.12em;color:var(--cyan);margin-bottom:7px}
+.st .sd{font-size:13.5px;font-weight:700;line-height:1.35;margin-bottom:5px}
+.st .sm{font-size:12px;color:var(--ink-dim);line-height:1.5}
+.st.fault{border-color:rgba(246,167,42,.4)}
+.st.fault .sn{color:var(--amber)}
+.chain .cx{flex:none;width:26px;align-self:center;height:1px;background:linear-gradient(90deg,var(--line),rgba(87,230,220,.55),var(--line))}
+.fault-row{margin-top:11px;border:1px solid rgba(246,167,42,.32);border-radius:13px;background:linear-gradient(90deg,rgba(246,167,42,.06),transparent);padding:14px 18px;display:flex;gap:18px;align-items:baseline;flex-wrap:wrap}
+.fault-row .fn{font-family:var(--mono);font-size:12px;letter-spacing:.12em;color:var(--amber);flex:none}
+.fault-row .fd{font-size:13.5px;color:var(--ink-dim);line-height:1.55}
+.fault-row .fd b{color:var(--ink)}
+
+/* stat cards */
+.stat .big{font-family:var(--mono);font-weight:700;font-size:clamp(24px,2.5vw,32px);color:var(--cyan);letter-spacing:-.01em;line-height:1.1;margin-bottom:11px}
+.stat.amber .big{color:var(--amber)}
+.stat .big em{font-style:normal;font-size:.62em;color:var(--ink-faint);letter-spacing:0}
+
+/* qa */
+.qa{display:grid;gap:11px;margin-top:26px}
+.qa-row{border:1px solid var(--line);border-radius:13px;padding:16px 20px;background:var(--panel);
+  display:grid;grid-template-columns:minmax(190px,1fr) 1.5fr;gap:20px;align-items:center}
+.qa-q{font-weight:700;font-size:15px;line-height:1.4}
+.qa-a{font-size:13.5px;line-height:1.6;color:var(--ink-dim)}
+.qa-a b{color:var(--ink)}
+
+/* closing */
+.pills{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+.pill{border:1px solid var(--line);border-radius:12px;padding:15px 19px;background:var(--panel);min-width:200px;flex:1}
+.pill .k{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--cyan);text-transform:uppercase;margin-bottom:7px}
+.pill .v{font-size:15px;font-weight:700;letter-spacing:-.01em;line-height:1.45}
+.signoff{margin-top:46px;display:flex;align-items:baseline;gap:18px;flex-wrap:wrap}
+.signoff .logo{font-size:clamp(28px,3.6vw,42px);font-weight:800;letter-spacing:-.02em}
+.signoff .logo b{color:var(--cyan)}
+.signoff .tag{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;color:var(--ink-dim);text-transform:uppercase}
+
+/* ---------- cover ---------- */
+#s0 .wrap{max-width:1020px}
+.cover-title{font-size:clamp(38px,7.4vw,96px);font-weight:800;line-height:.99;letter-spacing:-.035em;margin:20px 0 24px}
+.cover-title .l2{color:var(--cyan)}
+.cover-sub{font-size:clamp(15px,1.8vw,21px);color:var(--ink-dim);line-height:1.62;max-width:56ch;margin-bottom:30px}
+.cover-sub b{color:var(--ink);font-weight:600}
+.cover-meta{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.spec-chip{font-family:var(--mono);font-size:12.5px;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:9px 17px;letter-spacing:.05em}
+.spec-chip .u{color:var(--cyan)}
+.cover-foot{margin-top:34px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--ink-faint)}
+.scroll-hint{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.3em;color:var(--ink-faint);
+  display:flex;flex-direction:column;align-items:center;gap:8px;text-transform:uppercase}
+.scroll-hint .dot{width:1px;height:32px;background:linear-gradient(180deg,var(--cyan),transparent);animation:drop 1.8s ease-in-out infinite}
+@keyframes drop{0%,100%{transform:scaleY(.4);transform-origin:top;opacity:.4}50%{transform:scaleY(1);opacity:1}}
+
+/* ---------- reveal ---------- */
+[data-rise]{opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+.slide.reveal-on [data-rise]{opacity:1;transform:none}
+.slide.reveal-on [data-rise]:nth-child(2){transition-delay:.06s}
+.slide.reveal-on [data-rise]:nth-child(3){transition-delay:.12s}
+.slide.reveal-on [data-rise]:nth-child(4){transition-delay:.18s}
+.slide.reveal-on [data-rise]:nth-child(5){transition-delay:.24s}
+.slide.reveal-on .grid [data-rise]:nth-child(1){transition-delay:.10s}
+.slide.reveal-on .grid [data-rise]:nth-child(2){transition-delay:.18s}
+.slide.reveal-on .grid [data-rise]:nth-child(3){transition-delay:.26s}
+.slide.reveal-on .grid [data-rise]:nth-child(4){transition-delay:.34s}
+
+.pbar{display:none}
+
+/* ---------- responsive ---------- */
+@media(max-width:1100px){
+  .tbl{font-size:13px}
+}
+/* 낮은 화면(노트북 1366×768 등) — 세로 리듬을 조여 슬라이드가 한 화면에 들어오게 */
+@media(min-width:901px) and (max-height:790px){
+  .slide{padding-top:44px;padding-bottom:44px}
+  .eyebrow{margin-bottom:15px}
+  h2.head{font-size:clamp(22px,3vw,34px);margin-bottom:13px}
+  h2.head.sm{font-size:clamp(20px,2.3vw,27px);margin-bottom:10px}
+  .lead{font-size:13.5px;line-height:1.6}
+  .grid{margin-top:17px;gap:12px}
+  .card{padding:16px 18px 14px}
+  .card .k{margin-bottom:8px}
+  .card h3{font-size:15.5px;margin-bottom:6px}
+  .card p{font-size:12.8px;line-height:1.55}
+  .callout{margin-top:17px;padding:16px 20px}
+  .callout p{font-size:13.5px}
+  .flow .chip{font-size:11.5px;padding:7px 13px}
+  .tbl{margin-top:17px;font-size:12.6px}
+  .tbl td{padding:10px 14px}
+  .tbl td.who{font-size:13px}
+  .note{margin-top:12px;font-size:10.8px;line-height:1.6}
+  .chain{margin-top:17px}
+  .st{padding:12px 13px}
+  .st .sm{font-size:11.4px}
+  .fault-row{margin-top:9px;padding:11px 15px}
+  .qa{margin-top:17px;gap:8px}
+  .qa-row{padding:12px 17px}
+  .qa-q{font-size:14px}
+  .qa-a{font-size:12.6px}
+  .pills{margin-top:19px}
+  .pill{padding:12px 16px}
+  .pill .v{font-size:13.5px}
+  .signoff{margin-top:28px}
+  .ba{margin-top:16px}
+  .ba img{max-height:30svh}
+  .ba figcaption{margin-top:8px}
+  .diagram{margin-top:10px}
+  .diagram img{max-height:58svh}
+  .cover-title{margin:14px 0 18px}
+  .cover-sub{margin-bottom:22px}
+  .cover-foot{margin-top:24px}
+  .stat .big{margin-bottom:8px}
+}
+@media(max-width:900px){
+  :root{--rail:0px}
+  .ruler{display:none}
+  .slide{padding:56px 20px 64px;align-items:flex-start}
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .ba{grid-template-columns:1fr;gap:14px}
+  .ba .bridge{flex-direction:row}
+  .ba .bridge .ln{width:44px;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent)}
+  .qa-row{grid-template-columns:1fr;gap:8px}
+  .chain{flex-direction:column}
+  .chain .cx{width:1px;height:16px;margin-left:24px;background:linear-gradient(180deg,var(--line),rgba(87,230,220,.55),var(--line))}
+  h2.head{max-width:none}
+  .pbar{display:block;position:fixed;top:0;left:0;height:3px;background:var(--cyan);z-index:50;
+    box-shadow:0 0 12px rgba(87,230,220,.7);width:0;transition:width .25s ease}
+}
+@media(prefers-reduced-motion:reduce){
+  *{scroll-behavior:auto!important}
+  [data-rise]{transition:none;opacity:1;transform:none}
+  .scroll-hint .dot{animation:none}
+  .deck{scroll-snap-type:none}
+}
+</style>
+</head>
+<body>
+<div class="pbar" id="pbar"></div>
+<div class="deck" id="deck">
+
+  <nav class="ruler" aria-label="섹션 이동">
+    <div class="brand">T<b>1</b> · TRAY&nbsp;CTRL</div>
+    <div class="ticks" id="ticks"></div>
+    <div class="foot">SCROLL</div>
+  </nav>
+
+  <!-- 00 COVER -->
+  <section class="slide active reveal-on" id="s0" data-title="Cover">
+    <div class="wrap">
+      <div class="dimline" data-rise><span class="seg"></span>T1 · MOTION CONTROL<span class="seg"></span></div>
+      <h1 class="cover-title" data-rise>트레이 엘리베이터<br><span class="l2">전용 제어기</span></h1>
+      <p class="cover-sub" data-rise>반도체 후공정 장비(핸들러·소터)에 들어가는 <b>JEDEC 트레이 엘리베이터 3대</b>를, 티원이 직접 설계·제작·납품하는 <b>전용 제어기 1대</b>로 통합합니다. 장비는 지시만 내리고, <b>정지와 안전은 제어기가 스스로 완결</b>합니다.</p>
+      <div class="cover-meta" data-rise>
+        <span class="spec-chip">엘리베이터 <span class="u">3</span>대 · 제어기 <span class="u">1</span>대</span>
+        <span class="spec-chip">EtherCAT 슬레이브</span>
+        <span class="spec-chip">편도 <span class="u">300</span>mm · 약 <span class="u">8</span>초</span>
+        <span class="spec-chip">수직 부하 <span class="u">3</span>kg</span>
+      </div>
+      <div class="cover-foot" data-rise>PRD v0.7 (2026-08-12) 기준 · 반도체 장비용 JEDEC 트레이 엘리베이터 BLDC 컨트롤러</div>
+    </div>
+    <div class="scroll-hint"><span>Scroll</span><span class="dot"></span></div>
+  </section>
+
+  <!-- 01 PROBLEM -->
+  <section class="slide" id="s1" data-title="문제">
+    <div class="wrap">
+      <div class="eyebrow" data-rise><span class="num">01</span><span class="rule"></span><span class="lbl">지금의 문제</span></div>
+      <h2 class="head" data-rise>정지 명령을 못 내리면,<br>엘리베이터는 <span class="hl-a">부딪힙니다</span></h2>
+      <p class="lead" data-rise>지금은 엘리베이터 제어가 <b>장비 전체 프로그램 안에 섞여</b> 있습니다. 프로그램이 <b>DO(구동) 신호</b>로 모터를 움직이고, 센서가 정지 위치를 잡으면 그 신호를 꺼서 멈춥니다. 정지 판단의 주인이 장비 프로그램인 구조입니다.</p>
+      <div class="callout" data-rise>
+        <div class="k">사고가 나는 지점</div>
+        <p>디버깅하다 <b>브레이크포인트로 프로그램을 잠깐 멈추거나</b>, 제어 프로그램이 <b>오류로 갑자기 죽으면</b> — 출력은 마지막 상태를 유지하므로 켜져 있던 구동 신호를 끄지 못합니다. 모터는 명령대로 계속 밀고 나가 <b>기구 끝단에 충돌</b>합니다. 자중으로 흘러내리는 사고가 아니라, <b>정지 명령을 못 내려서</b> 생기는 사고입니다.</p>
+      </div>
+      <div class="grid g3" style="margin-top:24px">
+        <div class="card" data-rise>
+          <div class="k">반복 부담</div>
+          <h3>장비마다 다시 넣고 다시 테스트</h3>
+          <p>장비가 바뀌어도 반드시 들어가는 공통 기능인데, 매번 장비 프로그램 안에 끼워 넣고 함께 검증해야 합니다.</p>
+        </div>
+        <div class="card" data-rise>
+          <div class="k">구형 구동부</div>
+          <h3>AC 방식의 한계</h3>
+          <p>기존 <b>MSC-1 AC 스피드컨트롤러 + 6W AC 브레이크 모터</b>는 <b>30분 단시간 정격</b>이라 반복 운전 지속성에 제약이 있습니다.</p>
+        </div>
+        <div class="card" data-rise>
+          <div class="k">박스와 배선</div>
+          <h3>제어 박스가 3대</h3>
+          <p>엘리베이터 3대를 위해 컨트롤러 3대와 통신 커플러가 따로 자리를 차지하고, 그만큼 배선도 늘어납니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 SOLUTION -->
+  <section class="slide" id="s2" data-title="해결">
+    <div class="wrap">
+      <div class="eyebrow" data-rise><span class="num">02</span><span class="rule"></span><span class="lbl">해결 방향</span></div>
+      <h2 class="head" data-rise>지시와 실행을<br><span class="hl">분리</span>합니다</h2>
+      <p class="lead" data-rise>장비는 이제 제어기에 <b>시작 · 정지 · 즉시중단</b>만 지시합니다. 속도 조절, 센서를 보고 멈추는 판단, 정전·고장 시 홀딩은 전부 제어기가 스스로 완결합니다.</p>
+      <div class="flow" data-rise style="margin-top:22px">
+        <span class="chip on">장비 (마스터)</span><span class="link"></span>
+        <span class="chip">시작 / 정지 / 즉시중단</span><span class="link"></span>
+        <span class="chip on">전용 제어기</span><span class="link"></span>
+        <span class="chip">속도 · 정지 · 안전 로컬 완결</span>
+      </div>
+      <div class="grid g2" style="margin-top:28px">
+        <div class="card" data-rise>
+          <div class="k">비유 · 자동차 ABS</div>
+          <h3>운전자가 무엇을 하든 안전 장치는 켜져 있다</h3>
+          <p>운전자는 페달만 밟고, 미끄러짐을 막는 건 차가 알아서 합니다. 마찬가지로 <b>장비 프로그램이 멈춰 있든 죽어 있든</b>, 제어기는 센서를 보고 엘리베이터를 스스로 세웁니다.</p>
+        </div>
+        <div class="card" data-rise>
+          <div class="k">왜 더 빨리 서는가</div>
+          <h3>정지 센서를 축 드라이버가 직접 받는다</h3>
+          <p>정지 센서 4점(상·하 리밋 + 트레이 유무 2점)을 <b>축 드라이버에 직접 연결</b>했습니다. 감지에서 정지 실행까지 <b>0~1 ms</b>입니다.</p>
+          <p>감독 MCU를 한 번 거치는 구조였다면 통신 대기 때문에 3~11 ms가 걸립니다. 그래서 <b>정지 판단을 축에 내렸습니다.</b></p>
+        </div>
+      </div>
+      <div class="note" data-rise>PRD 제1장 §3.1 · 제3장 §4.2 — 센서 4점 전량 축 로컬 수신 (2026-08-12 확정)</div>
+    </div>
+  </section>
+
+  <!-- 03 BEFORE / AFTER -->
+  <section class="slide" id="s3" data-title="구성 변화">
+    <div class="wrap">
+      <div class="eyebrow" data-rise><span class="num">03</span><span class="rule"></span><span class="lbl">구성 변화</span></div>
+      <h2 class="head sm" data-rise>여러 박스와 배선이, <span class="hl">하나로</span></h2>
+      <div class="ba" data-rise>
+        <figure><img src="기존시스템.png" alt="기존 시스템 — EtherCAT 커플러와 AC 스피드컨트롤러 3대"><figcaption>Before · 기존 시스템</figcaption></figure>
+        <div class="bridge"><span class="ln"></span><span>교체</span><span class="ln"></span></div>
+        <figure><img src="새로운시스템.png" alt="새로운 시스템 — Tray Controller 1대"><figcaption>After · 새로운 시스템</figcaption></figure>
+      </div>
+      <div class="grid g3" style="margin-top:22px">
+        <div class="card" data-rise>
+          <div class="k">그대로 재사용</div>
+          <h3>기구는 손대지 않습니다</h3>
+          <p><b>2LF25N-3 리니어 헤드</b>(랙&amp;피니언, 수직 스트로크 300mm)와 기존 기구 프레임, 센서를 그대로 씁니다.</p>
+        </div>
+        <div class="card" data-rise>
+          <div class="k">교체 대상</div>
+          <h3>AC 구동부를 BLDC로</h3>
+          <p><b>MSC-1 컨트롤러 3대</b>와 <b>MBM206-412 6W AC 브레이크 모터 3대</b>를, 24V BLDC(홀센서·무여자 브레이크 내장, 30W급 <b>연속정격</b>)로 바꿉니다.</p>
+        </div>
+        <div class="card" data-rise>
+          <div class="k">신규</div>
+          <h3>Tray Controller 1대</h3>
+          <p>드라이버 3개를 내장한 제어기 1대가 <b>컨트롤러 3대와 커플러 자리를 대체</b>하고, EtherCAT 슬레이브로 장비에 붙습니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 SYSTEM DIAGRAM -->
+  <section class="slide diag" id="s4" data-title="시스템 구성">
+    <div class="wrap wide">
+      <div class="eyebrow" data-rise><span class="num">04</span><span class="rule"></span><span class="lbl">시스템 구성</span></div>
+      <h2 class="head sm" data-rise>제어기 한 대가 <span class="hl">3축을 통합 제어</span>합니다</h2>
+      <figure class="diagram" data-rise><img src="controller-lowres.png" alt="제어기 시스템 구성도 — EtherCAT · 감독 MCU · 3축 드라이버 · BLDC/브레이크/홀센서 · STO"></figure>
+    </div>
+  </section>
+
+  <!-- 05 ROLES -->
+  <section class="slide" id="s5" data-title="역할 분담">
+    <div class="wrap wide">
+      <div class="eyebrow" data-rise><span class="num">05</span><span class="rule"></span><span class="lbl">역할 분담</span></div>
+      <h2 class="head sm" data-rise>누가 무엇을 하고,<br><span class="hl">무엇을 하지 않는가</span></h2>
+      <table class="tbl" data-rise>
+        <thead><tr><th style="width:20%">계층</th><th style="width:44%">하는 일</th><th style="width:36%">하지 않는 일 (경계)</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="who">상위 장비<span>ETHERCAT MASTER</span></td>
+            <td>축별 <b>시작·정지·방향 지령</b>과 상태 폴링, <b>즉시중단(abort)</b> 발행, 장비 생산량(UPH) 스케줄링</td>
+            <td class="no">실시간 모션·전류 제어에 관여하지 않음. 정지 판단도, 서보를 언제 끌지도 결정하지 않음</td>
+          </tr>
+          <tr>
+            <td class="who">감독 MCU<span>SUPERVISOR</span></td>
+            <td><b>통신 중계</b>(EtherCAT과 축 사이), 축별 상태 확정, <b>서보 OFF 타임아웃 판단</b>, 이번 이동에서 어느 센서로 멈출지 지정, 설비 I/O, <b>수동 조작 패널</b></td>
+            <td class="no">각 축의 전류·PWM 루프에 개입하지 않음. 정지 센서를 직접 받지 않음 — 전량 축으로 이관</td>
+          </tr>
+          <tr>
+            <td class="who">축 드라이버 ×3<span>AXIS DRIVER</span></td>
+            <td><b>홀센서 FOC + 속도 PI 로컬 완결</b>, 브레이크 구동, 정지 센서 4점 수신과 <b>정지 실행</b>, 폴트 시 최우선 차단</td>
+            <td class="no">상위 시퀀스 판단을 하지 않음. 절대위치 제어·축간 보간을 하지 않음</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note" data-rise>3축은 한 기계의 3축이 아니라 <b>물리적으로 독립된 엘리베이터 3대</b>입니다. 축간 동기(보간)가 필요 없어, 각 축이 독립적으로 조그하고 독립적으로 멈춥니다. — PRD 제1장 §1.1 · §2.2</div>
+    </div>
+  </section>
+
+  <!-- 06 SAFETY -->
+  <section class="slide" id="s6" data-title="안전">
+    <div class="wrap">
+      <div class="eyebrow" data-rise><span class="num">06</span><span class="rule"></span><span class="lbl">안전이 최우선</span></div>
+      <h2 class="head sm" data-rise>안전은 소프트웨어가 아니라<br><span class="hl-a">3중 구조</span>가 보장합니다</h2>
+      <div class="grid g3">
+        <div class="card" data-rise>
+          <div class="k">1층 · 축 자율 반사</div>
+          <h3>상위가 죽어도 축이 스스로 선다</h3>
+          <p>축 드라이버는 네 가지를 <b>지시 없이 스스로</b> 판단해 실행합니다 — 끝단 리밋 감지, 통신 두절, 폴트 발생, 홀딩 시간 초과.</p>
+          <p>즉 감독 MCU가 멈춰도, 통신선이 끊겨도 각 축은 감속·정지하고 브레이크를 겁니다.</p>
+        </div>
+        <div class="card safe" data-rise>
+          <div class="k">2층 · 페일세이프 홀딩</div>
+          <h3>전원이 끊겨야 잠기는 브레이크</h3>
+          <p>모터에 <b>무여자 브레이크</b>가 내장됩니다. 정전·고장·비상정지로 전원이 사라지면 스프링이 <b>자동으로 꽉 잡습니다.</b></p>
+          <p>랙&amp;피니언은 스스로 잠기지 않기 때문에, 이 브레이크가 트레이를 붙잡는 최종 수단입니다.</p>
+        </div>
+        <div class="card safe" data-rise>
+          <div class="k">3층 · 하드웨어 안전차단</div>
+          <h3>STO 2채널 — 힘과 브레이크를 동시에</h3>
+          <p>소프트웨어를 거치지 않는 하드와이어 경로로 <b>모터 전원(토크)과 브레이크 전원을 함께 차단</b>합니다.</p>
+          <p><b>토크만 끊는 STO는 금지</b>했습니다 — 브레이크 회로가 고장 나 열린 채로 남으면 힘도 브레이크도 없는 상태가 되기 때문입니다.</p>
+        </div>
+      </div>
+      <div class="grid g2" style="margin-top:15px">
+        <div class="card" data-rise>
+          <div class="k">출하 전 검증</div>
+          <h3>제어기를 죽여 놓고 시험합니다</h3>
+          <p>디버거로 <b>감독 MCU와 축 드라이버를 모두 정지시킨 상태</b>에서 STO를 넣어, 펌웨어 개입 없이 브레이크가 잡히는지 확인합니다. 정전 차단·폴트 주입·통신 두절 시험도 전 케이스 통과해야 출하합니다.</p>
+        </div>
+        <div class="card" data-rise>
+          <div class="k">숫자로 확인</div>
+          <h3>낙하량은 계산이 아니라 실측</h3>
+          <p>브레이크가 잡히기까지의 처짐량은 브레이크 체결 시간에 좌우됩니다(후보 모터 카탈로그값 100 ms). 실제 낙하량을 <b>변위계로 측정해 허용치 안에 드는 것을 확인한 뒤</b> 납품하며, 허용 기준은 고객 기구 사양에 맞춰 협의합니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 SEQUENCE -->
+  <section class="slide" id="s7" data-title="동작 시퀀스">
+    <div class="wrap wide">
+      <div class="eyebrow" data-rise><span class="num">07</span><span class="rule"></span><span class="lbl">동작 시퀀스</span></div>
+      <h2 class="head sm" data-rise>제어기는 <span class="hl">다섯 가지 상태</span>로만<br>움직입니다</h2>
+      <p class="lead" data-rise>축마다 독립적으로 돌아가는 단순한 상태 흐름입니다. 상위 장비는 이 상태와 정지 사유를 통신선으로 그대로 읽습니다.</p>
+      <div class="chain" data-rise>
+        <div class="st">
+          <div class="sn">IDLE</div>
+          <div class="sd">대기</div>
+          <div class="sm">브레이크 체결 · 전류 차단. 트레이는 기계적으로 잡혀 있습니다.</div>
+        </div><span class="cx"></span>
+        <div class="st">
+          <div class="sn">SERVO ON</div>
+          <div class="sd">기동 준비</div>
+          <div class="sm">먼저 모터에 힘을 세운 뒤에야 브레이크를 풉니다. 순서가 뒤바뀌면 처짐이 생깁니다.</div>
+        </div><span class="cx"></span>
+        <div class="st">
+          <div class="sn">RUN</div>
+          <div class="sd">조그 운전</div>
+          <div class="sm">속도 폐루프로 이송. 이번 이동에서 어느 센서로 멈출지는 출발할 때 정해집니다.</div>
+        </div><span class="cx"></span>
+        <div class="st">
+          <div class="sn">STOPPED</div>
+          <div class="sd">정지 · 서보락 홀딩</div>
+          <div class="sm">센서가 잡히면 축이 즉시 정지하고, 전류로 제자리를 붙듭니다.</div>
+        </div><span class="cx"></span>
+        <div class="st">
+          <div class="sn">IDLE</div>
+          <div class="sd">브레이크 체결</div>
+          <div class="sm">일정 시간이 지나면 브레이크를 걸고 전류를 끊습니다. 홀딩 발열이 사라집니다.</div>
+        </div>
+      </div>
+      <div class="fault-row" data-rise>
+        <span class="fn">FAULT — 어느 상태에서든</span>
+        <span class="fd">폴트·비상정지·통신 두절·상위 즉시중단이 들어오면 <b>즉시 전류를 끊고 브레이크를 겁니다.</b> 원인이 해소되고 상위가 리셋을 지시해야만 대기 상태로 돌아갑니다.</span>
+      </div>
+      <div class="grid g2" style="margin-top:15px">
+        <div class="card" data-rise>
+          <div class="k">홀딩 정책 · 2계층</div>
+          <h3>붙잡는 시간에 상한을 둡니다</h3>
+          <p>정상 상황에서는 <b>감독 MCU가 기본 5초</b> 뒤 브레이크로 전환합니다(발열을 보며 조정). 통신이 끊긴 상황을 대비해 <b>축에도 별도의 상한</b>을 두어, 상위가 없어도 축이 스스로 홀딩을 끝내고 브레이크를 겁니다.</p>
+        </div>
+        <div class="card" data-rise>
+          <div class="k">왜 전류로 붙잡나</div>
+          <h3>브레이크 마모와 발열의 균형</h3>
+          <p>짧은 정지마다 브레이크를 여닫으면 마모와 대기 시간이 늘고, 전류로만 붙들면 발열이 쌓입니다. 그래서 <b>짧은 정지는 서보락, 긴 정지는 브레이크</b>로 나눕니다. 전환 시점은 실제 장비 사이클을 재현한 발열 실측으로 확정합니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 OPERATION -->
+  <section class="slide" id="s8" data-title="설치·운용">
+    <div class="wrap">
+      <div class="eyebrow" data-rise><span class="num">08</span><span class="rule"></span><span class="lbl">설치와 운용</span></div>
+      <h2 class="head sm" data-rise>통신선에 끼우면 끝,<br>관리는 <span class="hl">커버를 열지 않고</span></h2>
+      <div class="grid g3">
+        <div class="card" data-rise>
+          <div class="k">무배선 편입</div>
+          <h3>통신선 + 24V 전원만</h3>
+          <p>장비가 이미 쓰는 EtherCAT 망에 그대로 연결합니다. 장비까지 끌 배선이 <b>통신선과 전원뿐</b>이라 설치가 빠르고, 모터·센서 배선은 제어기 근처에서 짧게 정리됩니다.</p>
+        </div>
+        <div class="card" data-rise>
+          <div class="k">원격 업데이트</div>
+          <h3>펌웨어를 통신선으로</h3>
+          <p>제어기 안 소프트웨어를 <b>통신선으로 갱신</b>합니다. 감독은 물론 <b>축 드라이버 3개까지</b> 같은 경로로 갱신되며, 커버를 열거나 케이블을 새로 꽂지 않아도 됩니다.</p>
+          <p><b>3축이 모두 정지·브레이크 체결 상태일 때만</b> 업데이트를 허용합니다. 운전 중 요청은 제어기가 거부합니다.</p>
+        </div>
+        <div class="card" data-rise>
+          <div class="k">원격 진단·수동 테스트</div>
+          <h3>현장에 가지 않고 점검</h3>
+          <p>고장 코드·상태·센서 값을 통신선으로 조회하고, <b>유지보수 모드</b>에서 축을 하나씩 수동으로 움직여 볼 수 있습니다. 이때도 <b>안전 인터록은 하나도 우회되지 않습니다.</b></p>
+        </div>
+      </div>
+      <div class="grid g2" style="margin-top:15px">
+        <div class="card" data-rise>
+          <div class="k">현장 조작</div>
+          <h3>수동 조작 패널</h3>
+          <p>제어기 외부 버튼으로 축을 직접 조그할 수 있습니다. <b>누르는 동안만 움직이고(dead-man)</b>, 손을 떼면 즉시 감속·정지합니다. 모드 전환은 <b>키스위치</b>로, 그것도 3축이 모두 멈춰 있을 때만 됩니다.</p>
+          <p>수동이든 자동이든 <b>지령이 지나는 안전 판정 경로는 하나</b>입니다 — 버튼에서 모터로 직결되는 샛길은 없습니다.</p>
+        </div>
+        <div class="card" data-rise>
+          <div class="k">증설</div>
+          <h3>늘릴 땐 하나 더</h3>
+          <p>기본 3대에서 더 필요하면 <b>같은 제어기를 통신선에 하나 더</b> 끼우면 됩니다. 새 배선 공사나 재설계가 없습니다.</p>
+          <p>속도 같은 설정값도 별도 장치 없이 <b>통신선으로 변경</b>하고, 벤치에서 튜닝한 값을 그대로 내려 씁니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 09 SUCCESS CRITERIA -->
+  <section class="slide" id="s9" data-title="검증 기준">
+    <div class="wrap wide">
+      <div class="eyebrow" data-rise><span class="num">09</span><span class="rule"></span><span class="lbl">합격 기준</span></div>
+      <h2 class="head sm" data-rise>무엇을 통과해야<br><span class="hl">완성인지</span> 미리 정해 두었습니다</h2>
+      <table class="tbl" data-rise>
+        <thead><tr><th style="width:8%">#</th><th style="width:56%">합격 기준</th><th style="width:36%">확인 방법</th></tr></thead>
+        <tbody>
+          <tr><td class="id">SC-1</td><td>수직 <b>3kg</b> 트레이 스택을 <b>편도 300mm / 약 8초</b>로 승강</td><td>3축 각각 왕복 100회 무고장</td></tr>
+          <tr><td class="id">SC-2</td><td>정지 중 <b>서보락으로 3kg 홀딩</b>, 실제 장비 사이클을 재현한 반복 운전에서 발열이 허용 범위</td><td>발열 실측 후 서보 OFF 시점 확정</td></tr>
+          <tr><td class="id">SC-3</td><td>폴트·정전·비상정지·서보 OFF 시 <b>무여자 브레이크 자동 체결</b>, 처짐이 허용치 이내</td><td>STO 주입 + 정전 차단 시험</td></tr>
+          <tr><td class="id">SC-4</td><td>상위 장비가 <b>축별로 시작·정지·상태·즉시중단</b>을 통신으로 제어</td><td>마스터 연동 시험</td></tr>
+          <tr><td class="id">SC-5</td><td>센서 기반 <b>정지 반복정밀도</b>가 픽·플레이스 허용치 이내</td><td>반복 정지 20~30회 변위 측정</td></tr>
+          <tr><td class="id">SC-6</td><td>3대를 동시에 내릴 때 발생하는 <b>회생 전력을 24V 버스가 흡수</b></td><td>3축 동시 하강 시 버스 전압 실측</td></tr>
+        </tbody>
+      </table>
+      <div class="note" data-rise>성능 절대값(회전수·토크·홀딩력)은 <b>계산으로 확정하지 않습니다</b> — 리니어 헤드 내부 감속비가 공개되어 있지 않기 때문입니다. 대신 <b>출력 여유가 있는 동등 대체 + 벤치 실측</b>으로 확정합니다. 홀딩 추력 38.4N 이상 확인이 그 기준선입니다. — PRD 제1장 §1.2 · 제3장 §7</div>
+    </div>
+  </section>
+
+  <!-- 10 VALUE -->
+  <section class="slide" id="s10" data-title="원가·가치">
+    <div class="wrap">
+      <div class="eyebrow" data-rise><span class="num">10</span><span class="rule"></span><span class="lbl">원가와 가치</span></div>
+      <h2 class="head sm" data-rise>더 싸고, 더 오래 돌고,<br><span class="hl">티원이 끝까지 책임</span>집니다</h2>
+      <div class="grid g3">
+        <div class="card stat" data-rise>
+          <div class="big">3대 <em>에서</em> 1대</div>
+          <h3>제어 박스 통합</h3>
+          <p>AC 컨트롤러 3대와 통신 커플러가 차지하던 자리를 <b>제어기 1대</b>가 대체합니다. 관리할 장치 수와 배선이 함께 줄어듭니다.</p>
+        </div>
+        <div class="card stat" data-rise>
+          <div class="big">30분 <em>에서</em> 연속</div>
+          <h3>운전 지속성</h3>
+          <p>원본 AC 모터는 <b>30분 단시간 정격</b>이었지만, 교체할 BLDC는 <b>연속정격</b>입니다. 이동 구간 발열 제약이 사실상 사라집니다.</p>
+        </div>
+        <div class="card stat amber" data-rise>
+          <div class="big">단일 창구</div>
+          <h3>티원이 전 과정 보유</h3>
+          <p>설계·제작·검증·유지보수를 <b>티원이 직접</b> 합니다. 해외 벤더 대기 없이 빠르게 개선·맞춤 대응하고, 고객은 한 곳과만 소통합니다.</p>
+        </div>
+      </div>
+      <div class="pills" data-rise>
+        <div class="pill"><div class="k">부품 원가</div><div class="v">수입 AC 모터 대비<br>모터 값이 저렴하고 조달이 빠름</div></div>
+        <div class="pill"><div class="k">개발 리스크</div><div class="v">홀센서 FOC는 사내에서 이미<br>실기 구동·튜닝을 마친 검증 자산</div></div>
+        <div class="pill"><div class="k">재사용</div><div class="v">한 번 검증한 제어기를 장비가 바뀌거나<br>대수를 늘려도 그대로 재사용</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 Q&A -->
+  <section class="slide" id="s11" data-title="자주 나오는 질문">
+    <div class="wrap wide">
+      <div class="eyebrow" data-rise><span class="num">11</span><span class="rule"></span><span class="lbl">자주 나오는 질문</span></div>
+      <h2 class="head sm" data-rise>궁금하실 만한 점,<br>미리 답해드립니다</h2>
+      <div class="qa">
+        <div class="qa-row" data-rise>
+          <div class="qa-q">제어기 속이 안 보이는데 문제가 생기면?</div>
+          <div class="qa-a">복잡한 모션·안전 로직은 몰라도 됩니다 — 신경 쓸 범위가 줄어드는 게 이점입니다. 제어기가 <b>고장 코드·상태·센서 값을 실시간으로 통신선에 보고</b>하고, 유지보수 모드와 원격 진단으로 티원이 지원합니다.</div>
+        </div>
+        <div class="qa-row" data-rise>
+          <div class="qa-q">안전을 제어기 하나에 맡겨도 되나?</div>
+          <div class="qa-a">핵심 안전은 소프트웨어가 아니라 <b>하드웨어</b>가 보장합니다. 전원이 끊겨야 잠기는 브레이크와 <b>2채널 하드와이어 차단</b>을 두고, <b>제어기를 정지시킨 상태에서 시험</b>해 통과한 뒤 출하합니다.</div>
+        </div>
+        <div class="qa-row" data-rise>
+          <div class="qa-q">표준 기성품이 아니라 자체 설계인데?</div>
+          <div class="qa-a">범용품의 불필요한 복잡성·라이선스 없이 <b>이 장비에 딱 맞게</b> 설계했습니다. 장비와 주고받는 신호를 단순하게 만들어 연동이 쉽고, 초기 연동까지 티원이 함께 합니다.</div>
+        </div>
+        <div class="qa-row" data-rise>
+          <div class="qa-q">기구를 다시 설계해야 하나?</div>
+          <div class="qa-a">아닙니다. <b>리니어 헤드와 기존 프레임·센서는 그대로 재사용</b>합니다. 바뀌는 것은 모터와 제어부이며, 모터 결합부 정합은 벤치에서 확인한 뒤 확정합니다.</div>
+        </div>
+        <div class="qa-row" data-rise>
+          <div class="qa-q">유지보수 대응은?</div>
+          <div class="qa-a">설계·제작·검증 전 과정을 티원이 보유해 <b>단일 창구로 빠르게</b> 대응하고, 커버를 열지 않는 원격 업데이트로 유지보수 비용과 다운타임을 낮춥니다.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12 CLOSING -->
+  <section class="slide" id="s12" data-title="정리">
+    <div class="wrap">
+      <div class="eyebrow" data-rise><span class="num">12</span><span class="rule"></span><span class="lbl">정리</span></div>
+      <h2 class="head" data-rise>안전은 더 확실하게,<br>도입과 운용은 <span class="hl">더 단순하게</span></h2>
+      <div class="pills">
+        <div class="pill" data-rise><div class="k">Safety</div><div class="v">프로그램이 멈추거나 죽어도<br>축이 스스로 정지 · 3중 안전 구조</div></div>
+        <div class="pill" data-rise><div class="k">Simple</div><div class="v">통신선과 전원만으로 편입<br>증설은 제어기 하나 더</div></div>
+        <div class="pill" data-rise><div class="k">Serviceable</div><div class="v">커버를 열지 않는 원격<br>설정 변경 · 펌웨어 갱신 · 진단</div></div>
+        <div class="pill" data-rise><div class="k">Value</div><div class="v">모터 원가·납기 개선<br>티원 단일 책임</div></div>
+      </div>
+      <div class="signoff" data-rise>
+        <div class="logo">티원 <b>T1</b></div>
+        <div class="tag">Tray Elevator · Motion Control</div>
+      </div>
+      <div class="note" data-rise style="margin-top:26px">출처 — <b>docs/PRD_tray_elevator_bldc_controller.md v0.7</b> (2026-08-12) 및 절 단위 분해본 docs/PRD/</div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  var deck=document.getElementById('deck');
+  var slides=Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var ticksBox=document.getElementById('ticks');
+  var pbar=document.getElementById('pbar');
+
+  // build ruler ticks
+  slides.forEach(function(s,i){
+    var b=document.createElement('button');
+    b.className='tick'+(i===0?' active':'');
+    b.setAttribute('aria-label',(s.dataset.title||('섹션 '+i)));
+    b.innerHTML='<span class="n">'+String(i).padStart(2,'0')+'</span><span class="bar"></span>';
+    b.addEventListener('click',function(){go(i);});
+    ticksBox.appendChild(b);
+  });
+  var ticks=Array.prototype.slice.call(ticksBox.children);
+
+  // deterministic programmatic nav — temporarily lift mandatory snap so
+  // multi-slide jumps aren't blocked, then restore it for wheel snapping.
+  var snapT;
+  function go(n){
+    n=Math.max(0,Math.min(slides.length-1,n));
+    deck.style.scrollSnapType='none';           // lift snap so the jump isn't blocked
+    slides[n].scrollIntoView({behavior:'smooth',block:'start'});  // use real element position
+    clearTimeout(snapT);
+    snapT=setTimeout(function(){deck.style.scrollSnapType='';},700);  // restore for wheel snapping
+  }
+
+  // reveal once, keep revealed (decoupled from nav so it never flickers)
+  var revObs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('reveal-on'); } });
+  },{root:deck,threshold:0.15});
+  slides.forEach(function(s){revObs.observe(s)});
+
+  // nav + progress from scroll position (deterministic — no double-active)
+  var ticking=false;
+  function update(){
+    ticking=false;
+    var st=deck.scrollTop, vh=deck.clientHeight;
+    var idx=Math.round(st/vh); if(idx<0)idx=0; if(idx>slides.length-1)idx=slides.length-1;
+    slides.forEach(function(s,i){s.classList.toggle('active',i===idx)});
+    ticks.forEach(function(t,i){t.classList.toggle('active',i===idx)});
+    var max=deck.scrollHeight-vh; pbar.style.width=(max>0?(st/max*100):0)+'%';
+  }
+  deck.addEventListener('scroll',function(){ if(!ticking){ticking=true;requestAnimationFrame(update);} },{passive:true});
+  update();
+
+  // keyboard nav
+  window.addEventListener('keydown',function(ev){
+    var i=Math.round(deck.scrollTop/deck.clientHeight);
+    if(['ArrowDown','ArrowRight','PageDown',' '].indexOf(ev.key)>=0){ev.preventDefault();go(i+1);}
+    else if(['ArrowUp','ArrowLeft','PageUp'].indexOf(ev.key)>=0){ev.preventDefault();go(i-1);}
+    else if(ev.key==='Home'){ev.preventDefault();go(0);}
+    else if(ev.key==='End'){ev.preventDefault();go(slides.length-1);}
+  });
+})();
+</script>
+</body>
+</html>
